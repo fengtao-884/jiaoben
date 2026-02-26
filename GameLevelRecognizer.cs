@@ -323,7 +323,7 @@ namespace 脚本
                     var region = new Rectangle(position.x, position.y, width, height);
                     var cropped = CropImage(screen, region);
 
-                    cropped.Save("111.png");
+                    cropped.Save("333.png");
                 }
             }
             catch (Exception ex)
@@ -346,14 +346,14 @@ namespace 脚本
                     var binary = BinaryImage(cropped, threshold);
 
                     // 4. 保存处理后的图像用于调试
-                    string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-                    string folderPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "TextScreenshots");
-                    if (!Directory.Exists(folderPath))
-                    {
-                        Directory.CreateDirectory(folderPath);
-                    }
-                    string filePath = Path.Combine(folderPath, $"text_{timestamp}.png");
-                    binary.Save(filePath);
+                    //string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                    //string folderPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "TextScreenshots");
+                    //if (!Directory.Exists(folderPath))
+                    //{
+                    //    Directory.CreateDirectory(folderPath);
+                    //}
+                    //string filePath = Path.Combine(folderPath, $"text_{timestamp}.png");
+                    //binary.Save(filePath);
 
                     // 5. 使用Tesseract识别文字
                     using (var pix = PixConverter.ToPix(binary))
@@ -410,10 +410,42 @@ namespace 脚本
                         result.SetPixel(x, y, Color.White);  // 背景
                     else
                         result.SetPixel(x, y, Color.Black);  // 文字
+
                 }
             }
 
             return result;
         }
+        //private Bitmap BinaryImage(Bitmap image, int threshold)
+        //{
+        //    var result = new Bitmap(image.Width, image.Height);
+
+        //    // 白色检测阈值（可调整）
+        //    int whiteMinValue = 230;  // 最小白色值，可调
+
+        //    for (int y = 0; y < image.Height; y++)
+        //    {
+        //        for (int x = 0; x < image.Width; x++)
+        //        {
+        //            Color pixel = image.GetPixel(x, y);
+
+        //            // 直接检测白色像素
+        //            bool isWhite = pixel.R >= whiteMinValue &&
+        //                          pixel.G >= whiteMinValue &&
+        //                          pixel.B >= whiteMinValue;
+
+        //            if (isWhite)
+        //            {
+        //                result.SetPixel(x, y, Color.Black);  // 白色数字设为黑色
+        //            }
+        //            else
+        //            {
+        //                result.SetPixel(x, y, Color.White);  // 背景设为白色
+        //            }
+        //        }
+        //    }
+
+        //    return result;
+        //}
     }
 }

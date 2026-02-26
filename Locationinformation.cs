@@ -29,8 +29,9 @@ namespace 脚本
         /// <summary>
         /// 基地UI拖拽区域（起始坐标和结束坐标）
         /// </summary>
-        public static (int startX, int startY, int endX, int endY) BaseUIDrag => (1550, 387, 100, -500);
+        public static (int startX, int startY, int endX, int endY) BaseUIDrag => (1450, 387, 100, -500);
 
+        public static (int startX, int startY, int w, int h) Name => (255, 25, 125, 40);
         /// <summary>
         /// 卫星标记坐标
         /// </summary>
@@ -48,8 +49,8 @@ namespace 脚本
         /// </summary>
         public static (int x, int y) NextEnemy => (1671, 284);
 
-        //public static (int x, int y)[] HeroPosition { get; } = new[] {(160, 950),  (320, 950), (480, 950),   (640, 950),   (800, 950)  };
-        public static (int x, int y)[] HeroPosition { get; } = new[] { (480, 950),(640, 950) };
+        public static (int x, int y)[] HeroPosition { get; } = new[] {(160, 950),  (320, 950), (480, 950),   (640, 950),   (800, 950)  };
+        //public static (int x, int y)[] HeroPosition { get; } = new[] { (480, 950),(640, 950) };
         /// <summary>
         /// 下英雄的位置
         /// </summary>

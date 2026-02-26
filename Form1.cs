@@ -1,8 +1,4 @@
-using OpenCvSharp;
-using System;
 using System.Diagnostics;
-using System.Text.RegularExpressions;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 
 namespace 脚本
 {
@@ -28,8 +24,6 @@ namespace 脚本
 
         private async void button1_Click(object sender, EventArgs e)
         {
-            //string str = _recognizer.GetText(Locationinformation.敌人名称.x, Locationinformation.敌人名称.y,
-            //            Locationinformation.敌人名称.width, Locationinformation.敌人名称.height); return;
             _isRunning = true;
             await Task.Run(() => ExecuteLogic());
         }
@@ -52,7 +46,7 @@ namespace 脚本
                 RandomSleep(1000, 1500);
 
                 // 1. 
-                RandomTap(Locationinformation.MoonMark, 2, 2);
+                RandomTap(Locationinformation.MoonMark, 1, 1);
                 Debug.WriteLine("点击卫星标志");
                 // 2. 点击寻找敌人按钮
                 RandomTap(Locationinformation.FindEnemy, 15, 15);
@@ -60,6 +54,17 @@ namespace 脚本
                 Debug.WriteLine("点击寻找敌人按钮");
                 // 3. 等待敌人加载
                 RandomSleep(2000, 3000);
+
+                if (_recognizer.GetText(Locationinformation.Name.startX,
+                        Locationinformation.Name.startY,
+                        Locationinformation.Name.w,
+                        Locationinformation.Name.h) == "小卡拉米")
+                {
+                    RandomTap(Locationinformation.MoonMark, 1, 1);
+                    // 2. 点击寻找敌人按钮
+                    RandomTap(Locationinformation.FindEnemy, 15, 15);
+                }
+
 
                 do
                 {
@@ -99,30 +104,30 @@ namespace 脚本
         }
         private void ExecuteBattleLogic()
         {
-            // 遍历所有英雄位置，点击英雄并放置
-            Random rnd = new Random();
-            var shuffledPositions = Locationinformation.HeroPosition
-                .OrderBy(x => rnd.Next())
-                .ToList();
-
-            // 遍历打乱后的英雄位置，点击英雄并放置
-            foreach (var heroPosition in shuffledPositions)
+            var heroCheckBoxes = new[] { checkBox1, checkBox2, checkBox3,checkBox4,checkBox5 };
+            for (int i = 0; i < Locationinformation.HeroPosition.Count(); i++)
             {
-                RandomTap(heroPosition, 10, 10);
-                RandomSleep(500, 1000);
-                RandomTap(Locationinformation.Hero, 40, 40);
+                if(heroCheckBoxes[i].Checked)
+                {
+                    RandomTap(Locationinformation.HeroPosition[i], 10, 10);
+                    RandomSleep(800, 1200);
+                    RandomTap(Locationinformation.Hero, 100, 40);
+                }
             }
+           
 
             // 等待战斗胜利
-            int victoryStatus;
+            int victoryStatus=0;
             DateTime startTime = DateTime.Now;
             const int maxWaitTime = 2 * 60 * 1000;
             do
             {
+                victoryStatus = 0;
                 TimeSpan elapsed = DateTime.Now - startTime;
                 if (elapsed.TotalMilliseconds >= maxWaitTime)
                 {
                     RandomTap(Locationinformation.Retreat, 5, 5);///打不过 撤退
+                    Debug.WriteLine("战斗失败，已撤退");
                 }
                 RandomSleep(1000, 3000);
                 victoryStatus = _recognizer.GetNumber(
@@ -131,6 +136,7 @@ namespace 脚本
                     Locationinformation.VictoryArea.width,
                     Locationinformation.VictoryArea.height,
                     false);
+                Debug.WriteLine($"victoryStatus:{victoryStatus},{_isRunning}");
             } while (victoryStatus == -1&& _isRunning); //有数字则跳出循环
 
             // 战斗胜利后返回
@@ -155,36 +161,6 @@ namespace 脚本
             _isRunning = false;
         }
         /// <summary>
-        /// 军备收集
-        /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
-        private async void button2_Click(object sender, EventArgs e)
-        {
-            await Task.Run(() => 军备收集());
-
-        }
-        private void 军备收集()
-        {
-            RandomTap(Locationinformation.作战中心, 2, 2);
-
-            RandomTap(Locationinformation.军备收集, 2, 2);
-            for (int i = 0; i < 3; i++)
-            {
-                RandomTap(Locationinformation.开始战斗, 2, 2);
-
-                RandomSleep(2000, 4000);
-
-                _capturer.Drag(
-                         Locationinformation.EnemyUIDrag.startX + _random.Next(0, 100),
-                         Locationinformation.EnemyUIDrag.startY + _random.Next(0, 100),
-                         Locationinformation.EnemyUIDrag.endX + _random.Next(0, 100),
-                         Locationinformation.EnemyUIDrag.endY + _random.Next(-200, 200));
-                RandomSleep(2000, 4000);
-                ExecuteBattleLogic();
-            }
-        }
-        /// <summary>
         /// 波兰守卫
         /// </summary>
         /// <param name="sender"></param>
@@ -195,7 +171,7 @@ namespace 脚本
         }
         public void 波兰守卫()
         {
-            for (int i = 0; i < 40; i++)
+            for (int i = 0; i < numRun.Value; i++)
             {
                 Debug.WriteLine($"执行{i}");
                 RandomTap(Locationinformation.开始防御, 2, 2);
@@ -216,11 +192,12 @@ namespace 脚本
 
         private async void  button4_Click(object sender, EventArgs e)
         {
+            _isRunning = true;
             await Task.Run(() => 复仇X());
         }
         private void 复仇X()
         {
-            for (int i = 0; i < 35; i++)
+            for (int i = 0; i < numRun.Value; i++)
             {
                 Debug.WriteLine($"执行{i}");
                 RandomTap(Locationinformation.开始防御, 2, 2);
@@ -231,7 +208,7 @@ namespace 脚本
                         Locationinformation.EnemyUIDrag.endX + _random.Next(0, 100),
                         Locationinformation.EnemyUIDrag.endY + _random.Next(-200, 200));
                 ExecuteBattleLogic();
-                RandomTap(Locationinformation.Return, 2, 2);
+                //RandomTap(Locationinformation.Return, 2, 2);
                 RandomSleep(2000, 3000);
             }
         }
