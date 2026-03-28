@@ -346,14 +346,14 @@ namespace 脚本
                     var binary = BinaryImage(cropped, threshold);
 
                     // 4. 保存处理后的图像用于调试
-                    //string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-                    //string folderPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "TextScreenshots");
-                    //if (!Directory.Exists(folderPath))
-                    //{
-                    //    Directory.CreateDirectory(folderPath);
-                    //}
-                    //string filePath = Path.Combine(folderPath, $"text_{timestamp}.png");
-                    //binary.Save(filePath);
+                    string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                    string folderPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "TextScreenshots");
+                    if (!Directory.Exists(folderPath))
+                    {
+                        Directory.CreateDirectory(folderPath);
+                    }
+                    string filePath = Path.Combine(folderPath, $"text_{timestamp}.png");
+                    binary.Save(filePath);
 
                     // 5. 使用Tesseract识别文字
                     using (var pix = PixConverter.ToPix(binary))

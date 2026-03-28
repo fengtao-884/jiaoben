@@ -41,6 +41,7 @@
             checkBox3 = new CheckBox();
             checkBox4 = new CheckBox();
             checkBox5 = new CheckBox();
+            button2 = new Button();
             ((System.ComponentModel.ISupportInitialize)numLevel).BeginInit();
             ((System.ComponentModel.ISupportInitialize)numRun).BeginInit();
             SuspendLayout();
@@ -180,11 +181,22 @@
             checkBox5.Text = "英雄5";
             checkBox5.UseVisualStyleBackColor = true;
             // 
+            // button2
+            // 
+            button2.Location = new Point(57, 144);
+            button2.Name = "button2";
+            button2.Size = new Size(63, 46);
+            button2.TabIndex = 16;
+            button2.Text = "打人机资源";
+            button2.UseVisualStyleBackColor = true;
+            button2.Click += button2_Click;
+            // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(7F, 17F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(313, 202);
+            Controls.Add(button2);
             Controls.Add(checkBox5);
             Controls.Add(checkBox4);
             Controls.Add(checkBox3);
@@ -221,5 +233,6 @@
         private CheckBox checkBox3;
         private CheckBox checkBox4;
         private CheckBox checkBox5;
+        private Button button2;
     }
 }
