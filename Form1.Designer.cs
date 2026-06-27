@@ -62,7 +62,7 @@
             numLevel.Name = "numLevel";
             numLevel.Size = new Size(64, 23);
             numLevel.TabIndex = 1;
-            numLevel.Value = new decimal(new int[] { 40, 0, 0, 0 });
+            numLevel.Value = new decimal(new int[] { 50, 0, 0, 0 });
             // 
             // label1
             // 

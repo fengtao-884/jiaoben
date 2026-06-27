@@ -31,7 +31,7 @@ namespace 脚本
         /// </summary>
         public static (int startX, int startY, int endX, int endY) BaseUIDrag => (1450, 387, 100, -500);
 
-        public static (int startX, int startY, int w, int h) Name => (255, 25, 125, 40);
+        public static (int startX, int startY, int w, int h) Name => (270, 25, 125, 40);
         /// <summary>
         /// 卫星标记坐标
         /// </summary>

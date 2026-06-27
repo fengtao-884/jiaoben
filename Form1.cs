@@ -58,7 +58,7 @@ namespace 脚本
                 if (_recognizer.GetText(Locationinformation.Name.startX,
                         Locationinformation.Name.startY,
                         Locationinformation.Name.w,
-                        Locationinformation.Name.h) == "小卡拉米")
+                        Locationinformation.Name.h) == "大卡拉米")
                 {
                     RandomTap(Locationinformation.MoonMark, 1, 1);
                     // 2. 点击寻找敌人按钮
@@ -115,19 +115,23 @@ namespace 脚本
                 }
             }
 
+            DateTime startTime = DateTime.Now;
+            const int maxWaitTime = 35 * 1000;//40秒
+
 
             // 等待战斗胜利
-            int victoryStatus = 0;
-            DateTime startTime = DateTime.Now;
-            const int maxWaitTime = 2 * 60 * 1000;
+            int victoryStatus;
             do
             {
-                victoryStatus = 0;
+                victoryStatus = -1;
                 TimeSpan elapsed = DateTime.Now - startTime;
+
                 if (elapsed.TotalMilliseconds >= maxWaitTime)
                 {
                     RandomTap(Locationinformation.Retreat, 5, 5);///打不过 撤退
+                    RandomSleep(1000, 2000);
                     Debug.WriteLine("战斗失败，已撤退");
+                    break; 
                 }
                 RandomSleep(1000, 3000);
                 victoryStatus = _recognizer.GetNumber(
@@ -136,10 +140,16 @@ namespace 脚本
                     Locationinformation.VictoryArea.width,
                     Locationinformation.VictoryArea.height,
                     false);
+                if (victoryStatus==100)
+                {
+                    Debug.WriteLine("战斗完成 100，已撤退");
+                    break;
+                }
                 Debug.WriteLine($"victoryStatus:{victoryStatus},{_isRunning}");
-            } while (victoryStatus == -1 && _isRunning); //有数字则跳出循环
+            } while (_isRunning);
 
             // 战斗胜利后返回
+            Debug.WriteLine("战斗胜利后返回");
             RandomTap(Locationinformation.Return, 10, 10);
             RandomSleep(2000, 3000);
         }
@@ -249,7 +259,7 @@ namespace 脚本
                 if (_recognizer.GetText(Locationinformation.Name.startX,
                         Locationinformation.Name.startY,
                         Locationinformation.Name.w,
-                        Locationinformation.Name.h) == "小卡拉米")
+                        Locationinformation.Name.h) == "大卡拉米")
                 {
                     RandomTap(Locationinformation.MoonMark, 1, 1);
                     // 2. 点击寻找敌人按钮
