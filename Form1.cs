@@ -149,7 +149,7 @@ namespace 脚本
             } while (_isRunning);
 
             // 战斗胜利后返回
-            Debug.WriteLine("战斗胜利后返回");
+            Debug.WriteLine("返回基地");
             RandomTap(Locationinformation.Return, 10, 10);
             RandomSleep(2000, 3000);
         }
@@ -256,14 +256,24 @@ namespace 脚本
                 // 3. 等待敌人加载
                 RandomSleep(2000, 3000);
 
-                if (_recognizer.GetText(Locationinformation.Name.startX,
-                        Locationinformation.Name.startY,
-                        Locationinformation.Name.w,
-                        Locationinformation.Name.h) == "大卡拉米")
+                while (_isRunning &&
+             _recognizer.GetText(
+                 Locationinformation.Name.startX,
+                 Locationinformation.Name.startY,
+                 Locationinformation.Name.w,
+                 Locationinformation.Name.h) == "大卡拉米")
                 {
+                    Debug.WriteLine("检测到大卡拉米，重新寻找敌人...");
+                    _capturer.SendF5ToLdPlayer();
+                    RandomSleep(1000, 1500);
+                    _capturer.Drag(
+                  Locationinformation.BaseUIDrag.startX,
+                  Locationinformation.BaseUIDrag.startY,
+                  Locationinformation.BaseUIDrag.endX,
+                  Locationinformation.BaseUIDrag.endY); RandomSleep(800, 1500);
                     RandomTap(Locationinformation.MoonMark, 1, 1);
-                    // 2. 点击寻找敌人按钮
                     RandomTap(Locationinformation.FindEnemy, 15, 15);
+                    RandomSleep(1200, 1500); // 等待新敌人加载
                 }
 
 
@@ -273,7 +283,7 @@ namespace 脚本
                     string cleaned = input.Replace(",", "").Replace(".", "");
                     if (int.TryParse(cleaned, out int res))
                     {
-                        if (res % 17000 == 0)
+                        if (res % 17000 == 0 && res / 17000 > 380&& res / 17000 < 520)
                         {
                             _capturer.Drag(
                      Locationinformation.EnemyUIDrag.startX + _random.Next(0, 100),
@@ -291,8 +301,9 @@ namespace 脚本
 
                             if (level > numLevel.Value && level > 0)
                             {
-                                Debug.WriteLine($"找到合适敌人！等级: {level}");
+                                Debug.WriteLine($"找到合适敌人！等级: {level},资源：{res}");
                                 succeed++;
+                                BeginInvoke(() => { this.Text = $"已打{succeed}次"; });  
                                 // 执行战斗逻辑
                                 ExecuteBattleLogic();
                                 break;
@@ -301,19 +312,21 @@ namespace 脚本
                             {
                                 Debug.WriteLine($"敌人等级过高 ({level})，寻找下一个敌人...");
                                 RandomTap(Locationinformation.NextEnemy, 5, 5);
-                                RandomSleep(2000, 2200);
+                                RandomSleep(1500, 1800);
                             }
                         }
                         else
                         {
+                            Debug.WriteLine($"没找到合适敌人！资源：{res}");
                             RandomTap(Locationinformation.NextEnemy, 5, 5);
-                            RandomSleep(2000, 2200);
+                            RandomSleep(1200, 1600);
                         }
                     }
                     else
                     {
+                        Debug.WriteLine($"没找到合适敌人！ 找下一个，资源：{res}");
                         RandomTap(Locationinformation.NextEnemy, 5, 5);
-                        RandomSleep(2000, 2200);
+                        RandomSleep(1500, 1800);
                     }
 
                 } while (_isRunning);
