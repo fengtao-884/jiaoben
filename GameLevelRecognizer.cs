@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.Drawing.Imaging;
+using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using Tesseract;
 using Point = OpenCvSharp.Point;
@@ -41,20 +43,10 @@ namespace 脚本
                     // 3. 预处理图像（提高识别率）
                     var processed = PreprocessImage(cropped, isRemoveNoise);
 
-                    // 4. 动态生成文件名并保存到指定文件夹
-                    //string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-                    //string folderPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Screenshots");
-                    //if (!Directory.Exists(folderPath))
-                    //{
-                    //    Directory.CreateDirectory(folderPath);
-                    //}
-                    //string filePath = Path.Combine(folderPath, $"processed_{timestamp}.png");
-                    //processed.Save(filePath);
-
-                    // 5. 使用Tesseract识别数字
+                    // 4. 使用Tesseract识别数字
                     string text = RecognizeText(processed);
                     text = text.Replace("%", "");
-                    // 6. 提取数字
+                    // 5. 提取数字
                     if (int.TryParse(text, out int level))
                     {
                         return level;
@@ -120,27 +112,31 @@ namespace 脚本
         /// </summary>
         private Bitmap SimpleBinarization(Bitmap image)
         {
-            var processed = new Bitmap(image.Width, image.Height);
+            int[] src = ToArgbArray(image);
+            int[] result = new int[src.Length];
 
-            for (int y = 0; y < image.Height; y++)
+            int white = Color.White.ToArgb();
+            int black = Color.Black.ToArgb();
+
+            for (int i = 0; i < src.Length; i++)
             {
-                for (int x = 0; x < image.Width; x++)
-                {
-                    Color pixel = image.GetPixel(x, y);
+                int pixel = src[i];
+                int r = (pixel >> 16) & 0xFF;
+                int g = (pixel >> 8) & 0xFF;
+                int b = pixel & 0xFF;
 
-                    // 计算灰度值
-                    int gray = (int)(pixel.R * 0.3 + pixel.G * 0.59 + pixel.B * 0.11);
+                // 计算灰度值
+                int gray = (int)(r * 0.3 + g * 0.59 + b * 0.11);
 
-                    // 二值化（简单阈值）
-                    int threshold = 128;
-                    if (gray > threshold)
-                        processed.SetPixel(x, y, Color.White);  // 背景
-                    else
-                        processed.SetPixel(x, y, Color.Black);  // 数字
-                }
+                // 二值化（简单阈值）
+                int threshold = 128;
+                if (gray > threshold)
+                    result[i] = white;  // 背景
+                else
+                    result[i] = black;  // 数字
             }
 
-            return processed;
+            return FromArgbArray(result, image.Width, image.Height);
         }
 
         /// <summary>
@@ -153,12 +149,11 @@ namespace 脚本
             int width = binary.Width;
             int height = binary.Height;
 
-            // 创建结果图像，初始化为黑色背景（数字颜色）
-            var result = new Bitmap(width, height);
-            using (Graphics g = Graphics.FromImage(result))
-            {
-                g.Clear(Color.Black); // 黑色作为数字颜色
-            }
+            // 创建结果像素数组，初始化为黑色背景（数字颜色）
+            int[] result = new int[width * height];
+            Array.Fill(result, Color.Black.ToArgb()); // 黑色作为数字颜色
+
+            int[] src = ToArgbArray(binary);
 
             // 访问标记数组
             bool[,] visited = new bool[width, height];
@@ -167,12 +162,14 @@ namespace 脚本
             int[] dx = { -1, 0, 1, -1, 1, -1, 0, 1 };
             int[] dy = { -1, -1, -1, 0, 0, 1, 1, 1 };
 
+            int white = Color.White.ToArgb();
+
             for (int y = 0; y < height; y++)
             {
                 for (int x = 0; x < width; x++)
                 {
                     // 如果是白色像素（背景或数字）且未访问过
-                    if (binary.GetPixel(x, y).R == 255 && !visited[x, y])
+                    if (((src[y * width + x] >> 16) & 0xFF) == 255 && !visited[x, y])
                     {
                         var componentPixels = new List<Point>();
                         var stack = new Stack<Point>();
@@ -194,7 +191,7 @@ namespace 脚本
 
                                 if (nx >= 0 && nx < width && ny >= 0 && ny < height)
                                 {
-                                    if (binary.GetPixel(nx, ny).R == 255 && !visited[nx, ny])
+                                    if (((src[ny * width + nx] >> 16) & 0xFF) == 255 && !visited[nx, ny])
                                     {
                                         visited[nx, ny] = true;
                                         stack.Push(new Point(nx, ny));
@@ -208,7 +205,7 @@ namespace 脚本
                         {
                             foreach (var pixel in componentPixels)
                             {
-                                result.SetPixel(pixel.X, pixel.Y, Color.White);
+                                result[pixel.Y * width + pixel.X] = white;
                             }
                         }
                         // 否则，这是一个大面积白色背景区域，不复制到结果中（保持黑色）
@@ -216,19 +213,18 @@ namespace 脚本
                 }
             }
 
-            return result;
+            return FromArgbArray(result, width, height);
         }
         private Bitmap RemoveSmallWhiteNoise(Bitmap image, int minNoiseArea)
         {
             int width = image.Width;
             int height = image.Height;
 
-            // 创建结果图像，初始化为黑色背景
-            var result = new Bitmap(width, height);
-            using (Graphics g = Graphics.FromImage(result))
-            {
-                g.Clear(Color.Black);
-            }
+            // 创建结果像素数组，初始化为黑色背景
+            int[] result = new int[width * height];
+            Array.Fill(result, Color.Black.ToArgb());
+
+            int[] src = ToArgbArray(image);
 
             // 访问标记数组
             bool[,] visited = new bool[width, height];
@@ -237,12 +233,14 @@ namespace 脚本
             int[] dx = { -1, 0, 1, -1, 1, -1, 0, 1 };
             int[] dy = { -1, -1, -1, 0, 0, 1, 1, 1 };
 
+            int white = Color.White.ToArgb();
+
             for (int y = 0; y < height; y++)
             {
                 for (int x = 0; x < width; x++)
                 {
                     // 如果是白色像素（数字或噪点）且未访问过
-                    if (image.GetPixel(x, y).R == 255 && !visited[x, y])
+                    if (((src[y * width + x] >> 16) & 0xFF) == 255 && !visited[x, y])
                     {
                         var componentPixels = new List<Point>();
                         var stack = new Stack<Point>();
@@ -264,7 +262,7 @@ namespace 脚本
 
                                 if (nx >= 0 && nx < width && ny >= 0 && ny < height)
                                 {
-                                    if (image.GetPixel(nx, ny).R == 255 && !visited[nx, ny])
+                                    if (((src[ny * width + nx] >> 16) & 0xFF) == 255 && !visited[nx, ny])
                                     {
                                         visited[nx, ny] = true;
                                         stack.Push(new Point(nx, ny));
@@ -278,7 +276,7 @@ namespace 脚本
                         {
                             foreach (var pixel in componentPixels)
                             {
-                                result.SetPixel(pixel.X, pixel.Y, Color.White);
+                                result[pixel.Y * width + pixel.X] = white;
                             }
                         }
                         // 否则，这是一个小白色噪点，不复制到结果中（保持黑色）
@@ -286,7 +284,7 @@ namespace 脚本
                 }
             }
 
-            return result;
+            return FromArgbArray(result, width, height);
         }
         /// <summary>
         /// 使用Tesseract识别文字
@@ -312,25 +310,7 @@ namespace 脚本
         public void Dispose()
         {
             _tesseractEngine?.Dispose();
-        }
-        public void CaptureRegion((int x, int y) position, int width, int height)
-        {
-            try
-            {
-                // 1. 截取整个屏幕
-                using (var screen = _capturer.CaptureToBitmap())
-                {
-                    // 2. 截取指定区域
-                    var region = new Rectangle(position.x, position.y, width, height);
-                    var cropped = CropImage(screen, region);
-
-                    cropped.Save("333.png");
-                }
-            }
-            catch (Exception ex)
-            {
-                
-            }
+            _tesseractEngineChinese?.Dispose();
         }
         public string GetText(int x, int y, int width, int height, bool useChinese = true, int threshold = 128)
         {
@@ -346,17 +326,7 @@ namespace 脚本
                     // 3. 二值化处理
                     var binary = BinaryImage(cropped, threshold);
 
-                    // 4. 保存处理后的图像用于调试
-                    //string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-                    //string folderPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "TextScreenshots");
-                    //if (!Directory.Exists(folderPath))
-                    //{
-                    //    Directory.CreateDirectory(folderPath);
-                    //}
-                    //string filePath = Path.Combine(folderPath, $"text_{timestamp}.png");
-                    //binary.Save(filePath);
-
-                    // 5. 使用Tesseract识别文字
+                    // 4. 使用Tesseract识别文字
                     using (var pix = PixConverter.ToPix(binary))
                     {
                         if (useChinese && _tesseractEngineChinese != null)
@@ -395,58 +365,100 @@ namespace 脚本
         /// </summary>
         private Bitmap BinaryImage(Bitmap image, int threshold)
         {
-            var result = new Bitmap(image.Width, image.Height);
+            int[] src = ToArgbArray(image);
+            int[] result = new int[src.Length];
 
-            for (int y = 0; y < image.Height; y++)
+            int white = Color.White.ToArgb();
+            int black = Color.Black.ToArgb();
+
+            for (int i = 0; i < src.Length; i++)
             {
-                for (int x = 0; x < image.Width; x++)
+                int pixel = src[i];
+                int r = (pixel >> 16) & 0xFF;
+                int g = (pixel >> 8) & 0xFF;
+                int b = pixel & 0xFF;
+
+                // 计算灰度值
+                int gray = (int)(r * 0.299 + g * 0.587 + b * 0.114);
+
+                // 二值化
+                if (gray > threshold)
+                    result[i] = white;  // 背景
+                else
+                    result[i] = black;  // 文字
+            }
+
+            return FromArgbArray(result, image.Width, image.Height);
+        }
+
+        /// <summary>
+        /// 将位图像素按行优先顺序读取为 ARGB int 数组
+        /// （等价于逐像素 GetPixel，字节序 AARRGGBB）
+        /// </summary>
+        private static int[] ToArgbArray(Bitmap bmp)
+        {
+            int width = bmp.Width;
+            int height = bmp.Height;
+            int[] pixels = new int[width * height];
+
+            if (bmp.PixelFormat == PixelFormat.Format32bppArgb)
+            {
+                LockBitsIntoArray(bmp, pixels, width, height);
+            }
+            else
+            {
+                // 先统一为 32bppArgb 格式，保证每像素 4 字节（B,G,R,A）
+                using (var argb = bmp.Clone(new Rectangle(0, 0, width, height), PixelFormat.Format32bppArgb))
                 {
-                    Color pixel = image.GetPixel(x, y);
-
-                    // 计算灰度值
-                    int gray = (int)(pixel.R * 0.299 + pixel.G * 0.587 + pixel.B * 0.114);
-
-                    // 二值化
-                    if (gray > threshold)
-                        result.SetPixel(x, y, Color.White);  // 背景
-                    else
-                        result.SetPixel(x, y, Color.Black);  // 文字
-
+                    LockBitsIntoArray(argb, pixels, width, height);
                 }
+            }
+
+            return pixels;
+        }
+
+        /// <summary>
+        /// 将 ARGB int 数组按行优先顺序写回新创建的 32bppArgb 位图
+        /// </summary>
+        private static Bitmap FromArgbArray(int[] pixels, int width, int height)
+        {
+            var result = new Bitmap(width, height, PixelFormat.Format32bppArgb);
+            var data = result.LockBits(new Rectangle(0, 0, width, height), ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
+            try
+            {
+                int stride = data.Stride;
+                int offset = 0;
+                for (int y = 0; y < height; y++)
+                {
+                    Marshal.Copy(pixels, offset, data.Scan0 + y * stride, width);
+                    offset += width;
+                }
+            }
+            finally
+            {
+                result.UnlockBits(data);
             }
 
             return result;
         }
-        //private Bitmap BinaryImage(Bitmap image, int threshold)
-        //{
-        //    var result = new Bitmap(image.Width, image.Height);
 
-        //    // 白色检测阈值（可调整）
-        //    int whiteMinValue = 230;  // 最小白色值，可调
-
-        //    for (int y = 0; y < image.Height; y++)
-        //    {
-        //        for (int x = 0; x < image.Width; x++)
-        //        {
-        //            Color pixel = image.GetPixel(x, y);
-
-        //            // 直接检测白色像素
-        //            bool isWhite = pixel.R >= whiteMinValue &&
-        //                          pixel.G >= whiteMinValue &&
-        //                          pixel.B >= whiteMinValue;
-
-        //            if (isWhite)
-        //            {
-        //                result.SetPixel(x, y, Color.Black);  // 白色数字设为黑色
-        //            }
-        //            else
-        //            {
-        //                result.SetPixel(x, y, Color.White);  // 背景设为白色
-        //            }
-        //        }
-        //    }
-
-        //    return result;
-        //}
+        private static void LockBitsIntoArray(Bitmap bmp, int[] pixels, int width, int height)
+        {
+            var data = bmp.LockBits(new Rectangle(0, 0, width, height), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+            try
+            {
+                int stride = data.Stride;
+                int offset = 0;
+                for (int y = 0; y < height; y++)
+                {
+                    Marshal.Copy(data.Scan0 + y * stride, pixels, offset, width);
+                    offset += width;
+                }
+            }
+            finally
+            {
+                bmp.UnlockBits(data);
+            }
+        }
     }
 }

@@ -42,8 +42,14 @@
             checkBox4 = new CheckBox();
             checkBox5 = new CheckBox();
             button2 = new Button();
+            numResMin = new NumericUpDown();
+            numResMax = new NumericUpDown();
+            label2 = new Label();
+            label3 = new Label();
             ((System.ComponentModel.ISupportInitialize)numLevel).BeginInit();
             ((System.ComponentModel.ISupportInitialize)numRun).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)numResMin).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)numResMax).BeginInit();
             SuspendLayout();
             // 
             // button1
@@ -190,12 +196,52 @@
             button2.Text = "打人机资源";
             button2.UseVisualStyleBackColor = true;
             button2.Click += button2_Click;
-            // 
+            //
+            // numResMin
+            //
+            numResMin.Location = new Point(84, 195);
+            numResMin.Maximum = new decimal(new int[] { 2000, 0, 0, 0 });
+            numResMin.Name = "numResMin";
+            numResMin.Size = new Size(64, 23);
+            numResMin.TabIndex = 17;
+            numResMin.Value = new decimal(new int[] { 380, 0, 0, 0 });
+            //
+            // numResMax
+            //
+            numResMax.Location = new Point(214, 195);
+            numResMax.Maximum = new decimal(new int[] { 2000, 0, 0, 0 });
+            numResMax.Name = "numResMax";
+            numResMax.Size = new Size(64, 23);
+            numResMax.TabIndex = 18;
+            numResMax.Value = new decimal(new int[] { 600, 0, 0, 0 });
+            //
+            // label2
+            //
+            label2.AutoSize = true;
+            label2.Location = new Point(16, 197);
+            label2.Name = "label2";
+            label2.Size = new Size(68, 17);
+            label2.TabIndex = 19;
+            label2.Text = "资源下限：";
+            //
+            // label3
+            //
+            label3.AutoSize = true;
+            label3.Location = new Point(152, 197);
+            label3.Name = "label3";
+            label3.Size = new Size(68, 17);
+            label3.TabIndex = 20;
+            label3.Text = "资源上限：";
+            //
             // Form1
-            // 
+            //
             AutoScaleDimensions = new SizeF(7F, 17F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(313, 202);
+            ClientSize = new Size(313, 235);
+            Controls.Add(numResMax);
+            Controls.Add(numResMin);
+            Controls.Add(label2);
+            Controls.Add(label3);
             Controls.Add(button2);
             Controls.Add(checkBox5);
             Controls.Add(checkBox4);
@@ -214,6 +260,8 @@
             Text = "Form1";
             ((System.ComponentModel.ISupportInitialize)numLevel).EndInit();
             ((System.ComponentModel.ISupportInitialize)numRun).EndInit();
+            ((System.ComponentModel.ISupportInitialize)numResMin).EndInit();
+            ((System.ComponentModel.ISupportInitialize)numResMax).EndInit();
             ResumeLayout(false);
             PerformLayout();
         }
@@ -234,5 +282,9 @@
         private CheckBox checkBox4;
         private CheckBox checkBox5;
         private Button button2;
+        private NumericUpDown numResMin;
+        private NumericUpDown numResMax;
+        private Label label2;
+        private Label label3;
     }
 }

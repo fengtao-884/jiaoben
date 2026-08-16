@@ -30,7 +30,8 @@ namespace 脚本
         private void ExecuteLogic()
         {
             int succeed = 0;
-            for (int i = 0; i < numRun.Value; i++)
+            int runCount = ReadUi(() => (int)numRun.Value);
+            for (int i = 0; i < runCount; i++)
             {
                 if (!_isRunning)
                     break;
@@ -68,6 +69,7 @@ namespace 脚本
 
                 do
                 {
+                    int maxLevel = ReadUi(() => (int)numLevel.Value);
                     _capturer.Drag(
                         Locationinformation.EnemyUIDrag.startX + _random.Next(0, 100),
                         Locationinformation.EnemyUIDrag.startY + _random.Next(0, 100),
@@ -83,7 +85,7 @@ namespace 脚本
                         Locationinformation.LevelArea.height);
 
 
-                    if (level < numLevel.Value && level > 0)
+                    if (level < maxLevel && level > 0)
                     {
                         Debug.WriteLine($"找到合适敌人！等级: {level}");
                         succeed++;
@@ -154,6 +156,13 @@ namespace 脚本
             RandomSleep(1200, 1800);
         }
 
+        /// <summary>
+        /// 在 UI 线程上安全读取控件属性（后台线程专用）
+        /// </summary>
+        private T ReadUi<T>(Func<T> getter)
+        {
+            return (T)Invoke(getter);
+        }
         private void RandomSleep(int minMs, int maxMs)
         {
             int sleepTime = _random.Next(minMs, maxMs + 1);
@@ -181,7 +190,8 @@ namespace 脚本
         }
         public void 波兰守卫()
         {
-            for (int i = 0; i < numRun.Value; i++)
+            int runCount = ReadUi(() => (int)numRun.Value);
+            for (int i = 0; i < runCount; i++)
             {
                 Debug.WriteLine($"执行{i}");
                 RandomTap(Locationinformation.开始防御, 2, 2);
@@ -207,7 +217,8 @@ namespace 脚本
         }
         private void 复仇X()
         {
-            for (int i = 0; i < numRun.Value; i++)
+            int runCount = ReadUi(() => (int)numRun.Value);
+            for (int i = 0; i < runCount; i++)
             {
                 Debug.WriteLine($"执行{i}");
                 RandomTap(Locationinformation.开始防御, 2, 2);
@@ -231,7 +242,8 @@ namespace 脚本
         private void 打资源()
         {
             int succeed = 0;
-            for (int i = 0; i < numRun.Value; i++)
+            int runCount = ReadUi(() => (int)numRun.Value);
+            for (int i = 0; i < runCount; i++)
             {
                 if (!_isRunning)
                     break;
@@ -283,7 +295,9 @@ namespace 脚本
                     string cleaned = input.Replace(",", "").Replace(".", "");
                     if (int.TryParse(cleaned, out int res))
                     {
-                        if (res % 17000 == 0 && res / 17000 > 380 && res / 17000 < 600)
+                        int resMin = ReadUi(() => (int)numResMin.Value);
+                        int resMax = ReadUi(() => (int)numResMax.Value);
+                        if (res % 17000 == 0 && res / 17000 > resMin && res / 17000 < resMax)
                         {
                             _capturer.Drag(
                      Locationinformation.EnemyUIDrag.startX + _random.Next(0, 100),

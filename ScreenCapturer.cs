@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
-using static System.Windows.Forms.AxHost;
 
 namespace 脚本
 {
@@ -287,19 +286,12 @@ namespace 脚本
         {
             try
             {
-                // 发送右键长按命令
-                string rightDownCommand = _deviceSerial != null
-                    ? $"-s {_deviceSerial} shell input tap -t {holdTime} {startX} {startY}"
-                    : $"shell input tap -t {holdTime} {startX} {startY}";
-
-                // 实际上Android ADB不直接支持右键点击，我们需要使用一个替代方案
+                // holdTime 已废弃（Android input tap 不支持 -t 长按参数，原命令无效），保留仅为兼容签名
                 // 使用"input touchscreen swipe"代替"input swipe"，这样不会触发点击事件
                 string swipeCommand = _deviceSerial != null
                     ? $"-s {_deviceSerial} shell input touchscreen swipe {startX} {startY} {endX} {endY} {duration}"
                     : $"shell input touchscreen swipe {startX} {startY} {endX} {endY} {duration}";
 
-                ExecuteAdbCommand(rightDownCommand);
-                Thread.Sleep(holdTime);
                 ExecuteAdbCommand(swipeCommand);
             }
             catch (Exception ex)
