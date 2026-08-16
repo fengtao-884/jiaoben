@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.RegularExpressions;
 using Tesseract;
 using Point = OpenCvSharp.Point;
@@ -41,14 +42,14 @@ namespace 脚本
                     var processed = PreprocessImage(cropped, isRemoveNoise);
 
                     // 4. 动态生成文件名并保存到指定文件夹
-                    string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-                    string folderPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Screenshots");
-                    if (!Directory.Exists(folderPath))
-                    {
-                        Directory.CreateDirectory(folderPath);
-                    }
-                    string filePath = Path.Combine(folderPath, $"processed_{timestamp}.png");
-                    processed.Save(filePath);
+                    //string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                    //string folderPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Screenshots");
+                    //if (!Directory.Exists(folderPath))
+                    //{
+                    //    Directory.CreateDirectory(folderPath);
+                    //}
+                    //string filePath = Path.Combine(folderPath, $"processed_{timestamp}.png");
+                    //processed.Save(filePath);
 
                     // 5. 使用Tesseract识别数字
                     string text = RecognizeText(processed);
@@ -109,7 +110,7 @@ namespace 脚本
             var withoutLargeWhite = RemoveLargeWhiteAreas(binary, 100);
 
             // 3. 去除小白色噪点（数字内部的空洞或小斑点）
-            var cleaned = RemoveSmallWhiteNoise(withoutLargeWhite, 35);
+            var cleaned = RemoveSmallWhiteNoise(withoutLargeWhite, 30);
 
             return cleaned;
         }
@@ -303,7 +304,7 @@ namespace 脚本
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"OCR识别失败: {ex.Message}");
+                Debug.WriteLine($"OCR识别失败: {ex.Message}");
                 return "";
             }
         }
@@ -346,14 +347,14 @@ namespace 脚本
                     var binary = BinaryImage(cropped, threshold);
 
                     // 4. 保存处理后的图像用于调试
-                    string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-                    string folderPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "TextScreenshots");
-                    if (!Directory.Exists(folderPath))
-                    {
-                        Directory.CreateDirectory(folderPath);
-                    }
-                    string filePath = Path.Combine(folderPath, $"text_{timestamp}.png");
-                    binary.Save(filePath);
+                    //string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                    //string folderPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "TextScreenshots");
+                    //if (!Directory.Exists(folderPath))
+                    //{
+                    //    Directory.CreateDirectory(folderPath);
+                    //}
+                    //string filePath = Path.Combine(folderPath, $"text_{timestamp}.png");
+                    //binary.Save(filePath);
 
                     // 5. 使用Tesseract识别文字
                     using (var pix = PixConverter.ToPix(binary))
