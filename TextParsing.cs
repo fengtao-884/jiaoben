@@ -11,7 +11,7 @@ internal static class TextParsing
     /// <summary>
     /// 从 OCR 结果文本提取整数：去 %、直接解析、失败后提取数字字符；无数字返回 -1。
     /// </summary>
-    public static int ParseNumber(string text)
+        public static int ParseNumber(string? text)
     {
         if (string.IsNullOrEmpty(text)) return -1;
         string t = text.Replace("%", "");

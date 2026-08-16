@@ -103,13 +103,29 @@ internal static class ImageProcessing
     /// 有值时为多位数字（连通域 7+ 个）。实测（取证图）：归零 3 个、有值 16-19 个。
     /// </summary>
     public static int CountWhiteComponents(Bitmap source, Rectangle region, int minArea = 4)
+        => CountComponentsCore(source, region).Count(c => c.area >= minArea);
+
+    /// <summary>
+    /// 统计区域内"数字字符块"数量：白色连通域中高度 &gt;= minHeight 的个数。
+    /// 归零时每行只有单个"0"字符（高块 1-2 个/字符），有值时多位数字（高块 5+ 个）。
+    /// 高度过滤可排除虚线/分隔线/噪点等矮条干扰——实测（取证图）：
+    /// 归零 2 个高块、动态帧（油料0金币7位）10 个、有值帧 5 个，阈值 ≤3 判归零。
+    /// 参考社区实践（better-genshin-impact）：FindContours + BoundingRect 尺寸过滤。
+    /// </summary>
+    public static int CountDigitLikeComponents(Bitmap source, Rectangle region, int minHeight = 15)
+        => CountComponentsCore(source, region).Count(c => c.height >= minHeight);
+
+    private sealed record ComponentInfo(int width, int height, int area);
+
+    private static List<ComponentInfo> CountComponentsCore(Bitmap source, Rectangle region)
     {
+        var result = new List<ComponentInfo>();
         // 区域边界裁剪（越界自动收边）
         if (region.X < 0) { region.Width += region.X; region.X = 0; }
         if (region.Y < 0) { region.Height += region.Y; region.Y = 0; }
         if (region.Right > source.Width) region.Width = source.Width - region.X;
         if (region.Bottom > source.Height) region.Height = source.Height - region.Y;
-        if (region.Width <= 0 || region.Height <= 0) return 0;
+        if (region.Width <= 0 || region.Height <= 0) return result;
 
         int w = region.Width, h = region.Height;
         var set = new HashSet<int>();
@@ -131,29 +147,30 @@ internal static class ImageProcessing
         }
         finally { source.UnlockBits(data); }
 
-        // 4 连通 BFS 计数
+        // 4 连通 BFS，记录每个连通域的宽/高/面积
         var visited = new HashSet<int>();
-        int count = 0;
         foreach (int seed in set)
         {
             if (visited.Contains(seed)) continue;
             var stack = new Stack<int>();
             stack.Push(seed);
             visited.Add(seed);
-            int area = 0;
+            int minX = int.MaxValue, minY = int.MaxValue, maxX = -1, maxY = -1, area = 0;
             while (stack.Count > 0)
             {
                 int p = stack.Pop();
                 area++;
                 int x = p % w, y = p / w;
+                if (x < minX) minX = x; if (x > maxX) maxX = x;
+                if (y < minY) minY = y; if (y > maxY) maxY = y;
                 if (x > 0 && set.Contains(p - 1) && !visited.Contains(p - 1)) { visited.Add(p - 1); stack.Push(p - 1); }
                 if (x < w - 1 && set.Contains(p + 1) && !visited.Contains(p + 1)) { visited.Add(p + 1); stack.Push(p + 1); }
                 if (y > 0 && set.Contains(p - w) && !visited.Contains(p - w)) { visited.Add(p - w); stack.Push(p - w); }
                 if (y < h - 1 && set.Contains(p + w) && !visited.Contains(p + w)) { visited.Add(p + w); stack.Push(p + w); }
             }
-            if (area >= minArea) count++;
+            result.Add(new ComponentInfo(maxX - minX + 1, maxY - minY + 1, area));
         }
-        return count;
+        return result;
     }
 
     public static int[] ToArgbArray(Bitmap bmp)

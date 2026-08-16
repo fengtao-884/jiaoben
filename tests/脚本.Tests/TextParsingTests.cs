@@ -20,7 +20,7 @@ public class TextParsingTests
     [InlineData("abc")]
     [InlineData("无数字")]
     [InlineData(null)]
-    public void ParseNumber_无数字_返回负1(string text) =>
+    public void ParseNumber_无数字_返回负1(string? text) =>
         Assert.Equal(-1, TextParsing.ParseNumber(text));
 
     [Fact]

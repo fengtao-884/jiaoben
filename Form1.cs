@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Drawing.Imaging;
 using OpenCvSharp;
 using OpenCvSharp.Extensions;
 using Rect = OpenCvSharp.Rect;
@@ -12,6 +11,7 @@ namespace 脚本
         private GetNumberRecognizer _recognizer;
         private TemplateMatcher _satelliteMatcher;
         private TemplateMatcher _gunMatcher;
+        private TemplateMatcher _resTitleMatcher;
         private Random _random;
         /// <summary>卫星站记忆位置（拖拽后画面确定，识别一次后直接复用，定期重新校准）</summary>
         private (int x, int y)? _satellitePos;
@@ -28,6 +28,12 @@ namespace 脚本
                 Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Templates", "satellite_base.png"));
             _gunMatcher = new TemplateMatcher(
                 Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Templates", "gun.png"));
+            // 资源面板标题模板：用于定位"可掠夺资源"面板（位置无关，容忍移动基地/视角漂移）
+            _resTitleMatcher = new TemplateMatcher(
+                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Templates", "res_title.png"));
+            _resTitleMatcher.MinScale = 0.9;
+            _resTitleMatcher.MaxScale = 1.15;
+            _resTitleMatcher.ScaleStep = 0.05;
             _random = new Random();
             this.TopMost = true;
             this.TopLevel = true;
@@ -130,7 +136,7 @@ namespace 脚本
             var heroCheckBoxes = new[] { checkBox1, checkBox2, checkBox3, checkBox4, checkBox5 };
             for (int i = 0; i < Locationinformation.HeroPosition.Count(); i++)
             {
-                if (heroCheckBoxes[i].Checked)
+                if (ReadUi(() => heroCheckBoxes[i].Checked))
                 {
                     RandomTap(Locationinformation.HeroPosition[i], 10, 10);
                     RandomSleep(200, 300);
@@ -139,7 +145,7 @@ namespace 脚本
             }
 
             // 全部英雄下完后等待 2 秒，再开始资源归零/胜利检测（等英雄部署动画就绪）
-            RandomSleep(2000, 2000);
+            RandomSleep(5000, 5000);
 
             DateTime startTime = DateTime.Now;
             // 资源归零为主要结束条件；90秒超时仅作兜底（防止打不动的敌人无限战斗）
@@ -230,22 +236,48 @@ namespace 脚本
 
         /// <summary>
         /// 用给定截图检测资源是否归零（复用截图，避免重复截屏）。
-        /// 判据：数字行区域（金币+油料两行）的白色连通域数量 ≤ 5。
-        /// 归零时每行只有单个"0"字符（连通域 1-2 个），有值时多位数字（连通域 7+ 个）。
-        /// 实测（取证图）：归零 3 个、有值 16-19 个。OCR 对动态帧白字数字识别不稳定（读 2/9/-1）、
-        /// 模板匹配对有值数字串误判（0.9+），连通域是唯一验证可靠的判据。
+        /// 判据：模板匹配定位"可掠夺资源"标题（位置无关，容忍移动基地/视角漂移）
+        /// → 在标题下方固定偏移的数字行区域内统计"数字字符块"（高度≥15px 的白色块）数量 ≤ 3。
+        /// 归零时每行只有单个"0"字符（共 2 个高块），有值时多位数字（5+ 个高块）；
+        /// 高度过滤排除虚线/分隔线/噪点等矮条干扰。实测（取证图）：归零 2、动态帧 10、有值 5。
         /// </summary>
         private bool IsBattleResourceZero(Bitmap screen)
         {
-            const int maxComponents = 5;
-            var region = new Rectangle(
-                Locationinformation.战斗资源区.x,
-                Locationinformation.战斗资源区.y,
-                Locationinformation.战斗资源区.width,
-                Locationinformation.战斗资源区.height);
-            int components = ImageProcessing.CountWhiteComponents(screen, region);
-            Debug.WriteLine($"资源归零检测: 白色连通域={components} (需≤{maxComponents})");
-            return components <= maxComponents;
+            const int maxDigitLike = 3;
+            const int roiDx = 10, roiDy = 98, roiW = 300, roiH = 160;
+            const double titleThreshold = 0.7;
+
+            // 全图搜索标题模板（位置无关），找到面板后按固定偏移计算数字行检测区域
+            var title = _resTitleMatcher.FindBestMatch(screen);
+            if (title.Score < titleThreshold)
+            {
+                Debug.WriteLine($"资源面板标题定位失败(分数{title.Score:F2})");
+                SaveTitleFailEvidence(screen);
+                return false;
+            }
+            var roi = new Rectangle(title.Location.X + roiDx, title.Location.Y + roiDy, roiW, roiH);
+            int digitLike = ImageProcessing.CountDigitLikeComponents(screen, roi);
+            Debug.WriteLine($"资源归零检测: 数字字符块={digitLike} (需≤{maxDigitLike})");
+            return digitLike <= maxDigitLike;
+        }
+
+        private DateTime _lastTitleFailSave = DateTime.MinValue;
+
+        /// <summary>
+        /// 标题定位失败时保存当前画面（10 秒节流），供分析运行时画面与取证图的差异
+        /// </summary>
+        private void SaveTitleFailEvidence(Bitmap screen)
+        {
+            if ((DateTime.Now - _lastTitleFailSave).TotalSeconds < 10) return;
+            _lastTitleFailSave = DateTime.Now;
+            try
+            {
+                string folder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Screenshots");
+                Directory.CreateDirectory(folder);
+                screen.Save(Path.Combine(folder, $"titlefail_{DateTime.Now:HHmmss}.png"));
+                Debug.WriteLine("已保存标题定位失败取证图");
+            }
+            catch { }
         }
 
         /// <summary>

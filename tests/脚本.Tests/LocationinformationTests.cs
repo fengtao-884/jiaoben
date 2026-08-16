@@ -15,17 +15,6 @@ public class LocationinformationTests
         Assert.True(Locationinformation.LevelArea.height > 0);
         Assert.True(Locationinformation.VictoryArea.width > 0);
         Assert.True(Locationinformation.VictoryArea.height > 0);
-        Assert.True(Locationinformation.战斗资源区.width > 0);
-        Assert.True(Locationinformation.战斗资源区.height > 0);
-    }
-
-    [Fact]
-    public void 战斗资源区_在1920x1080屏幕内()
-    {
-        var r = Locationinformation.战斗资源区;
-        Assert.True(r.x >= 0 && r.y >= 0);
-        Assert.True(r.x + r.width <= 1920, "资源区右边界越界");
-        Assert.True(r.y + r.height <= 1080, "资源区下边界越界");
     }
 
     [Fact]
@@ -59,7 +48,7 @@ public class LocationinformationTests
         foreach (var r in new (int x, int y, int width, int height)[]
         {
             Locationinformation.LevelArea, Locationinformation.VictoryArea, Locationinformation.战斗胜利,
-            Locationinformation.敌人名称, Locationinformation.战斗资源区
+            Locationinformation.敌人名称
         })
         {
             Assert.True(r.width > 0 && r.height > 0);
