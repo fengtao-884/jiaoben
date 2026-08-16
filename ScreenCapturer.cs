@@ -15,31 +15,36 @@ namespace 脚本
             _adbPath = adbPath;
             _deviceSerial = DEVICE_SERIAL;
         }
+
+        /// <summary>
+        /// 拼接 ADB 全局参数：设备序列号非空时在最前面加 -s {serial}，否则原样返回。
+        /// </summary>
+        internal string BuildCommand(string arguments) =>
+            // 当前恒走 serial 分支：_deviceSerial 构造即固定 emulator-5554 且永不置空，null 分支仅防御性保留
+            _deviceSerial != null ? $"-s {_deviceSerial} {arguments}" : arguments;
+
         protected void ExecuteAdbCommand(string arguments)
         {
-            var processInfo = new ProcessStartInfo
+            using var process = Process.Start(new ProcessStartInfo
             {
                 FileName = _adbPath,
-                Arguments = arguments,
+                Arguments = BuildCommand(arguments),
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 CreateNoWindow = true
-            };
-
-            using (var process = Process.Start(processInfo))
+            });
+            if (process == null) throw new Exception("无法启动ADB进程");
+            // 先并发读 stdout/stderr 再等退出，避免任一缓冲写满导致死锁
+            var stdout = process.StandardOutput.ReadToEndAsync();
+            var stderr = process.StandardError.ReadToEndAsync();
+            if (!process.WaitForExit(3000))
             {
-                if (process == null)
-                    throw new Exception("无法启动ADB进程");
-
-                process.WaitForExit(3000);
-
-                if (process.ExitCode != 0)
-                {
-                    string error = process.StandardError.ReadToEnd();
-                    throw new Exception($"ADB命令执行失败: {error}");
-                }
+                try { process.Kill(); } catch { /* 已退出 */ }
+                throw new Exception($"ADB命令超时: {arguments}");
             }
+            if (process.ExitCode != 0)
+                throw new Exception($"ADB命令执行失败: {stderr.GetAwaiter().GetResult()}");
         }
     }
     public class LdPlayerCapturer : ScreenCapturer
@@ -58,7 +63,7 @@ namespace 脚本
                 var processInfo = new ProcessStartInfo
                 {
                     FileName = _adbPath,
-                    Arguments = arguments,
+                    Arguments = BuildCommand(arguments),
                     UseShellExecute = false,
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
@@ -71,13 +76,19 @@ namespace 脚本
                     if (process == null)
                         return string.Empty;
 
-                    string output = process.StandardOutput.ReadToEnd();
-                    process.WaitForExit(3000);
+                    // 先并发读 stdout/stderr 再等退出，避免缓冲写满死锁
+                    var stdoutTask = process.StandardOutput.ReadToEndAsync();
+                    var stderrTask = process.StandardError.ReadToEndAsync();
+                    if (!process.WaitForExit(3000))
+                    {
+                        try { process.Kill(); } catch { /* 已退出 */ }
+                        return string.Empty;
+                    }
+                    string output = stdoutTask.GetAwaiter().GetResult();
 
                     if (process.ExitCode != 0)
                     {
-                        string error = process.StandardError.ReadToEnd();
-                        Debug.WriteLine($"ADB命令执行失败: {error}");
+                        Debug.WriteLine($"ADB命令执行失败: {stderrTask.GetAwaiter().GetResult()}");
                         return string.Empty;
                     }
 
@@ -96,9 +107,7 @@ namespace 脚本
             try
             {
                 // 方法1：使用monkey命令
-                string command = _deviceSerial != null
-                    ? $"-s {_deviceSerial} shell monkey -p com.tjhry.zhanjing.hry -c android.intent.category.LAUNCHER 1"
-                    : $"shell monkey -p com.tjhry.zhanjing.hry -c android.intent.category.LAUNCHER 1";
+                string command = "shell monkey -p com.tjhry.zhanjing.hry -c android.intent.category.LAUNCHER 1";
 
                 ExecuteAdbCommand(command);
 
@@ -143,9 +152,7 @@ namespace 脚本
 
             try
             {
-                string command = _deviceSerial != null
-                    ? $"-s {_deviceSerial} shell am force-stop {packageName}"
-                    : $"shell am force-stop {packageName}";
+                string command = $"shell am force-stop {packageName}";
 
                 ExecuteAdbCommand(command);
                 Debug.WriteLine($"已关闭应用: {packageName}");
@@ -226,9 +233,7 @@ namespace 脚本
         {
             try
             {
-                string command = _deviceSerial != null
-                    ? $"-s {_deviceSerial} exec-out screencap -p"
-                    : "exec-out screencap -p";
+                string command = BuildCommand("exec-out screencap -p");
 
                 var processInfo = new ProcessStartInfo
                 {
@@ -246,27 +251,23 @@ namespace 脚本
                     if (process == null)
                         throw new Exception("无法启动ADB进程");
 
-                    // 读取二进制流
                     using (var memoryStream = new MemoryStream())
                     {
-                        byte[] buffer = new byte[4096];
-                        int bytesRead;
+                        // 异步读 stderr 与 stdout，避免任一缓冲写满导致死锁
+                        var stderrTask = process.StandardError.ReadToEndAsync();
+                        var stdoutTask = process.StandardOutput.BaseStream.CopyToAsync(memoryStream);
 
-                        // 从标准输出读取二进制数据
-                        while ((bytesRead = process.StandardOutput.BaseStream.Read(buffer, 0, buffer.Length)) > 0)
+                        if (!process.WaitForExit(3000)) // 等待3秒，超时则终止进程
                         {
-                            memoryStream.Write(buffer, 0, bytesRead);
+                            try { process.Kill(); } catch { /* 已退出 */ }
+                            throw new Exception("截图失败: ADB命令超时");
                         }
 
-                        process.WaitForExit(3000); // 等待3秒
+                        stdoutTask.GetAwaiter().GetResult(); // 进程已退出，收尾读取
 
                         if (process.ExitCode != 0)
-                        {
-                            string error = process.StandardError.ReadToEnd();
-                            throw new Exception($"截图失败: {error}");
-                        }
+                            throw new Exception($"截图失败: {stderrTask.GetAwaiter().GetResult()}");
 
-                        // 从内存流创建Bitmap
                         memoryStream.Position = 0;
                         return new Bitmap(memoryStream);
                     }
@@ -288,9 +289,7 @@ namespace 脚本
             {
                 // holdTime 已废弃（Android input tap 不支持 -t 长按参数，原命令无效），保留仅为兼容签名
                 // 使用"input touchscreen swipe"代替"input swipe"，这样不会触发点击事件
-                string swipeCommand = _deviceSerial != null
-                    ? $"-s {_deviceSerial} shell input touchscreen swipe {startX} {startY} {endX} {endY} {duration}"
-                    : $"shell input touchscreen swipe {startX} {startY} {endX} {endY} {duration}";
+                string swipeCommand = $"shell input touchscreen swipe {startX} {startY} {endX} {endY} {duration}";
 
                 ExecuteAdbCommand(swipeCommand);
             }

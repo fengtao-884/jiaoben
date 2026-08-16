@@ -1,4 +1,8 @@
 using System.Diagnostics;
+using System.Drawing.Imaging;
+using OpenCvSharp;
+using OpenCvSharp.Extensions;
+using Rect = OpenCvSharp.Rect;
 
 namespace 脚本
 {
@@ -6,7 +10,12 @@ namespace 脚本
     {
         private LdPlayerCapturer _capturer;
         private GetNumberRecognizer _recognizer;
+        private TemplateMatcher _satelliteMatcher;
+        private TemplateMatcher _gunMatcher;
         private Random _random;
+        /// <summary>卫星站记忆位置（拖拽后画面确定，识别一次后直接复用，定期重新校准）</summary>
+        private (int x, int y)? _satellitePos;
+        private int _satelliteCheckCountdown;
         private bool _isRunning = false;
 
 
@@ -15,6 +24,10 @@ namespace 脚本
             InitializeComponent();
             _capturer = new LdPlayerCapturer();
             _recognizer = new GetNumberRecognizer(_capturer);
+            _satelliteMatcher = new TemplateMatcher(
+                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Templates", "satellite_base.png"));
+            _gunMatcher = new TemplateMatcher(
+                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Templates", "gun.png"));
             _random = new Random();
             this.TopMost = true;
             this.TopLevel = true;
@@ -29,25 +42,30 @@ namespace 脚本
         }
         private void ExecuteLogic()
         {
-            int succeed = 0;
             int runCount = ReadUi(() => (int)numRun.Value);
             for (int i = 0; i < runCount; i++)
             {
                 if (!_isRunning)
                     break;
-                _capturer.MoveMouseTo(950, 500);
-                _capturer.SendF5ToLdPlayer();
-                RandomSleep(1000, 1500);
+
+                // 拖拽基地UI（实测 F5 可省，但需拖拽后卫星站才在画面中）
+                var sw = Stopwatch.StartNew();
                 _capturer.Drag(
                      Locationinformation.BaseUIDrag.startX,
                      Locationinformation.BaseUIDrag.startY,
                      Locationinformation.BaseUIDrag.endX,
                      Locationinformation.BaseUIDrag.endY);
+                Debug.WriteLine($"[耗时] 拖拽: {sw.ElapsedMilliseconds}ms");
                 Debug.WriteLine("拖拽基地UI");
-                RandomSleep(700, 1200);
+                RandomSleep(250, 450);
+                Debug.WriteLine($"[耗时] 拖拽后等待: {sw.ElapsedMilliseconds}ms");
 
-                // 1. 
-                RandomTap(Locationinformation.MoonMark, 1, 1);
+                // 1. 模板识别卫星站并点击（失败时内部自动 F5+拖拽兜底）
+                if (!FindAndTapSatellite())
+                {
+                    Debug.WriteLine("卫星站识别失败，跳过本轮");
+                    continue;
+                }
                 Debug.WriteLine("点击卫星标志");
                 // 2. 点击寻找敌人按钮
                 RandomTap(Locationinformation.FindEnemy, 15, 15);
@@ -61,7 +79,11 @@ namespace 脚本
                         Locationinformation.Name.w,
                         Locationinformation.Name.h) == "大卡拉米")
                 {
-                    RandomTap(Locationinformation.MoonMark, 1, 1);
+                    if (!FindAndTapSatellite())
+                    {
+                        Debug.WriteLine("卫星站识别失败，跳过本轮");
+                        continue;
+                    }
                     // 2. 点击寻找敌人按钮
                     RandomTap(Locationinformation.FindEnemy, 15, 15);
                 }
@@ -88,7 +110,6 @@ namespace 脚本
                     if (level < maxLevel && level > 0)
                     {
                         Debug.WriteLine($"找到合适敌人！等级: {level}");
-                        succeed++;
                         // 执行战斗逻辑
                         ExecuteBattleLogic();
                         break;
@@ -117,8 +138,12 @@ namespace 脚本
                 }
             }
 
+            // 全部英雄下完后等待 2 秒，再开始资源归零/胜利检测（等英雄部署动画就绪）
+            RandomSleep(2000, 2000);
+
             DateTime startTime = DateTime.Now;
-            const int maxWaitTime = 35 * 1000;//40秒
+            // 资源归零为主要结束条件；90秒超时仅作兜底（防止打不动的敌人无限战斗）
+            const int maxWaitTime = 90 * 1000;
 
 
             // 等待战斗胜利
@@ -132,16 +157,29 @@ namespace 脚本
                 {
                     RandomTap(Locationinformation.Retreat, 5, 5);///打不过 撤退
                     RandomSleep(1000, 2000);
-                    Debug.WriteLine("战斗失败，已撤退");
+                    Debug.WriteLine("战斗超时（90秒）资源未抢完，已撤退");
                     break; 
                 }
                 RandomSleep(1000, 2000);
-                victoryStatus = _recognizer.GetNumber(
-                    Locationinformation.VictoryArea.x,
-                    Locationinformation.VictoryArea.y,
-                    Locationinformation.VictoryArea.width,
-                    Locationinformation.VictoryArea.height,
-                    false);
+                // 一次截图复用：资源归零检测与胜利检测共用同一帧（省一次全屏截图）
+                using (var screen = _capturer.CaptureToBitmap())
+                {
+                    // 可掠夺资源已归零 → 提前撤退（不必等满超时）
+                    if (IsBattleResourceZero(screen))
+                    {
+                        RandomTap(Locationinformation.Retreat, 5, 5);
+                        RandomSleep(1000, 2000);
+                        Debug.WriteLine("资源已抢空，提前撤退");
+                        break;
+                    }
+                    victoryStatus = _recognizer.GetNumber(
+                        screen,
+                        Locationinformation.VictoryArea.x,
+                        Locationinformation.VictoryArea.y,
+                        Locationinformation.VictoryArea.width,
+                        Locationinformation.VictoryArea.height,
+                        false);
+                }
                 if (victoryStatus==100)
                 {
                     Debug.WriteLine("战斗完成 100，已撤退");
@@ -175,9 +213,165 @@ namespace 脚本
             _capturer.Tap(position.x + offsetX, position.y + offsetY);
         }
 
+        /// <summary>
+        /// 用给定截图检测机枪数量（复用截图，避免重复截屏）
+        /// </summary>
+        private bool IsGunCountEnough(Bitmap screen)
+        {
+            const int requiredCount = 8;
+            const double matchThreshold = 0.7;
+            using var mat = BitmapConverter.ToMat(screen);
+            using var gray = new Mat();
+            Cv2.CvtColor(mat, gray, ColorConversionCodes.BGR2GRAY);
+            var matches = _gunMatcher.FindAllMatches(gray, matchThreshold, 0.8, 1.2);
+            Debug.WriteLine($"机枪检测: {matches.Count} 个 (需≥{requiredCount})");
+            return matches.Count >= requiredCount;
+        }
+
+        /// <summary>
+        /// 用给定截图检测资源是否归零（复用截图，避免重复截屏）。
+        /// 判据：数字行区域（金币+油料两行）的白色连通域数量 ≤ 5。
+        /// 归零时每行只有单个"0"字符（连通域 1-2 个），有值时多位数字（连通域 7+ 个）。
+        /// 实测（取证图）：归零 3 个、有值 16-19 个。OCR 对动态帧白字数字识别不稳定（读 2/9/-1）、
+        /// 模板匹配对有值数字串误判（0.9+），连通域是唯一验证可靠的判据。
+        /// </summary>
+        private bool IsBattleResourceZero(Bitmap screen)
+        {
+            const int maxComponents = 5;
+            var region = new Rectangle(
+                Locationinformation.战斗资源区.x,
+                Locationinformation.战斗资源区.y,
+                Locationinformation.战斗资源区.width,
+                Locationinformation.战斗资源区.height);
+            int components = ImageProcessing.CountWhiteComponents(screen, region);
+            Debug.WriteLine($"资源归零检测: 白色连通域={components} (需≤{maxComponents})");
+            return components <= maxComponents;
+        }
+
+        /// <summary>
+        /// 用模板匹配识别基地中的卫星站并点击（替代固定坐标）。
+        /// 连续重试多次（卫星站天线会旋转，单帧可能匹配不到理想角度）。
+        /// </summary>
+        private bool FindAndTapSatellite()
+        {
+            const int SatelliteVerifyInterval = 5;
+
+            // 快路径：记忆位置有效且未到校验轮 → 直接点击（省掉截图+匹配，约快 0.5 秒/轮）
+            if (_satellitePos is { } pos && _satelliteCheckCountdown > 0)
+            {
+                var sw = Stopwatch.StartNew();
+                _satelliteCheckCountdown--;
+                _capturer.Tap(pos.x, pos.y);
+                Debug.WriteLine($"[耗时] 快路径点击: {sw.ElapsedMilliseconds}ms");
+                return true;
+            }
+
+            // 识别路径：成功则更新记忆位置并重置校验计数
+            if (TryFindAndTapSatellite())
+            {
+                _satelliteCheckCountdown = SatelliteVerifyInterval;
+                return true;
+            }
+
+            Debug.WriteLine("卫星站直接识别失败，执行 F5+拖拽兜底");
+            var swFallback = Stopwatch.StartNew();
+            _capturer.MoveMouseTo(950, 500);
+            _capturer.SendF5ToLdPlayer();
+            RandomSleep(1000, 1500);
+            _capturer.Drag(
+                Locationinformation.BaseUIDrag.startX,
+                Locationinformation.BaseUIDrag.startY,
+                Locationinformation.BaseUIDrag.endX,
+                Locationinformation.BaseUIDrag.endY);
+            RandomSleep(250, 450);
+            Debug.WriteLine($"[耗时] 兜底F5+拖拽: {swFallback.ElapsedMilliseconds}ms");
+            return TryFindAndTapSatellite();
+        }
+
+        /// <summary>
+        /// 直接截图识别卫星站并点击（连续重试，卫星站天线会旋转，单帧可能匹配不到理想角度）。
+        /// </summary>
+        private bool TryFindAndTapSatellite()
+        {
+            const int maxAttempts = 3;
+            for (int attempt = 1; attempt <= maxAttempts; attempt++)
+            {
+                var swShot = Stopwatch.StartNew();
+                using var screen = _capturer.CaptureToBitmap();
+                Debug.WriteLine($"[耗时] 截图: {swShot.ElapsedMilliseconds}ms");
+
+                swShot.Restart();
+                using var mat = BitmapConverter.ToMat(screen);
+                using var gray = new Mat();
+                Cv2.CvtColor(mat, gray, ColorConversionCodes.BGR2GRAY);
+
+                // 优先在记忆位置附近 ROI 匹配（快）；ROI 分数不足再全图匹配（画面变化时兜底）
+                TemplateMatchResult result;
+                if (_satellitePos is { } lastPos)
+                {
+                    const int roiSize = 320;
+                    int rx = Math.Max(0, lastPos.x - roiSize / 2);
+                    int ry = Math.Max(0, lastPos.y - roiSize / 2);
+                    int rw = Math.Min(roiSize, gray.Width - rx);
+                    int rh = Math.Min(roiSize, gray.Height - ry);
+                    result = _satelliteMatcher.FindBestMatchInRoi(gray, new Rect(rx, ry, rw, rh), 0.9, 1.3);
+                    if (result.Score < _satelliteMatcher.Threshold)
+                        result = _satelliteMatcher.FindBestMatch(gray);
+                }
+                else
+                {
+                    result = _satelliteMatcher.FindBestMatch(gray);
+                }
+                Debug.WriteLine($"[耗时] 匹配: {swShot.ElapsedMilliseconds}ms");
+
+                if (result.Score >= _satelliteMatcher.Threshold)
+                {
+                    swShot.Restart();
+                    _capturer.Tap(result.Center.X, result.Center.Y);
+                    Debug.WriteLine($"[耗时] 点击: {swShot.ElapsedMilliseconds}ms");
+                    _satellitePos = (result.Center.X, result.Center.Y);   // 记忆位置，供后续快路径复用
+                    Debug.WriteLine($"卫星站识别成功: 分数{result.Score:F2} 尺度{result.Scale:F2} 位置({result.Center.X},{result.Center.Y})");
+                    return true;
+                }
+                Debug.WriteLine($"卫星站识别失败(分数{result.Score:F2})，重试 {attempt}/{maxAttempts}");
+                RandomSleep(400, 700);
+            }
+            return false;
+        }
+
         private void btnStop_Click(object sender, EventArgs e)
         {
             _isRunning = false;
+        }
+
+        /// <summary>
+        /// 调试按钮：截当前画面 → 卫星站模板匹配 → 保存截图并打开，标题显示分数和位置。
+        /// 用于实测各种操作状态下卫星站是否可见（F5/拖拽前置步骤能否省略）。
+        /// </summary>
+        private void button5_Click(object sender, EventArgs e)
+        {
+            Task.Run(() =>
+            {
+                try
+                {
+                    using var screen = _capturer.CaptureToBitmap();
+                    var result = _satelliteMatcher.FindBestMatch(screen);
+                    string folder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Screenshots");
+                    Directory.CreateDirectory(folder);
+                    string path = Path.Combine(folder, $"debug_{DateTime.Now:HHmmss}.png");
+                    screen.Save(path);
+                    Debug.WriteLine($"调试截图已保存: {path}  卫星站分数={result.Score:F2} 位置=({result.Center.X},{result.Center.Y})");
+                    BeginInvoke(() =>
+                    {
+                        this.Text = $"分数{result.Score:F2} ({result.Center.X},{result.Center.Y})";
+                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(path) { UseShellExecute = true });
+                    });
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"调试截图失败: {ex.Message}");
+                }
+            });
         }
         /// <summary>
         /// 波兰守卫
@@ -247,19 +441,25 @@ namespace 脚本
             {
                 if (!_isRunning)
                     break;
-                _capturer.MoveMouseTo(950, 500);
-                _capturer.SendF5ToLdPlayer();
-                RandomSleep(1000, 1500);
+
+                // 拖拽基地UI（实测 F5 可省，但需拖拽后卫星站才在画面中）
+                var sw = Stopwatch.StartNew();
                 _capturer.Drag(
                      Locationinformation.BaseUIDrag.startX,
                      Locationinformation.BaseUIDrag.startY,
                      Locationinformation.BaseUIDrag.endX,
                      Locationinformation.BaseUIDrag.endY);
+                Debug.WriteLine($"[耗时] 拖拽: {sw.ElapsedMilliseconds}ms");
                 Debug.WriteLine("拖拽基地UI");
-                RandomSleep(1000, 1500);
+                RandomSleep(300, 500);
+                Debug.WriteLine($"[耗时] 拖拽后等待: {sw.ElapsedMilliseconds}ms");
 
-                // 1. 
-                RandomTap(Locationinformation.MoonMark, 1, 1);
+                // 1. 模板识别卫星站并点击（失败时内部自动 F5+拖拽兜底）
+                if (!FindAndTapSatellite())
+                {
+                    Debug.WriteLine("卫星站识别失败，跳过本轮");
+                    continue;
+                }
                 Debug.WriteLine("点击卫星标志");
                 // 2. 点击寻找敌人按钮
                 RandomTap(Locationinformation.FindEnemy, 15, 15);
@@ -276,14 +476,19 @@ namespace 脚本
                  Locationinformation.Name.h) == "大卡拉米")
                 {
                     Debug.WriteLine("检测到大卡拉米，重新寻找敌人...");
-                    _capturer.SendF5ToLdPlayer();
-                    RandomSleep(1000, 1500);
+                    // 拖拽基地UI后重新识别卫星站（F5 已确认不需要）
                     _capturer.Drag(
                   Locationinformation.BaseUIDrag.startX,
                   Locationinformation.BaseUIDrag.startY,
                   Locationinformation.BaseUIDrag.endX,
-                  Locationinformation.BaseUIDrag.endY); RandomSleep(800, 1500);
-                    RandomTap(Locationinformation.MoonMark, 1, 1);
+                  Locationinformation.BaseUIDrag.endY);
+                    RandomSleep(800, 1500);
+                    // 卫星站识别并点击（失败时内部自动 F5+拖拽兜底）
+                    if (!FindAndTapSatellite())
+                    {
+                        Debug.WriteLine("卫星站识别失败，重新等待敌人加载");
+                        break;
+                    }
                     RandomTap(Locationinformation.FindEnemy, 15, 15);
                     RandomSleep(1200, 1500); // 等待新敌人加载
                 }
@@ -291,7 +496,9 @@ namespace 脚本
 
                 do
                 {
-                    var input = _recognizer.GetText(80, 220, 200, 40);
+                    // 一次截图复用：资源 OCR 与机枪检测共用同一帧（省一次全屏截图）
+                    using var screen = _capturer.CaptureToBitmap();
+                    var input = _recognizer.GetText(screen, 80, 220, 200, 40);
                     string cleaned = input.Replace(",", "").Replace(".", "");
                     if (int.TryParse(cleaned, out int res))
                     {
@@ -299,6 +506,14 @@ namespace 脚本
                         int resMax = ReadUi(() => (int)numResMax.Value);
                         if (res % 17000 == 0 && res / 17000 > resMin && res / 17000 < resMax)
                         {
+                            // 机枪数量判断：>= 8 才进攻，否则找下一个（判定链：资源区间 → 机枪数量）
+                            if (!IsGunCountEnough(screen))
+                            {
+                                Debug.WriteLine($"资源达标但机枪不足，找下一个（资源{res}）");
+                                RandomTap(Locationinformation.NextEnemy, 5, 5);
+                                RandomSleep(1200, 1200);
+                                continue;
+                            }
                             _capturer.Drag(
                      Locationinformation.EnemyUIDrag.startX + _random.Next(0, 100),
                      Locationinformation.EnemyUIDrag.startY + _random.Next(0, 100),

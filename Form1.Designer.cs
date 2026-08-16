@@ -28,7 +28,6 @@
         /// </summary>
         private void InitializeComponent()
         {
-            button1 = new Button();
             numLevel = new NumericUpDown();
             label1 = new Label();
             btnStop = new Button();
@@ -36,6 +35,7 @@
             numRun = new NumericUpDown();
             button3 = new Button();
             button4 = new Button();
+            button5 = new Button();
             checkBox1 = new CheckBox();
             checkBox2 = new CheckBox();
             checkBox3 = new CheckBox();
@@ -51,16 +51,6 @@
             ((System.ComponentModel.ISupportInitialize)numResMin).BeginInit();
             ((System.ComponentModel.ISupportInitialize)numResMax).BeginInit();
             SuspendLayout();
-            // 
-            // button1
-            // 
-            button1.Location = new Point(58, 41);
-            button1.Name = "button1";
-            button1.Size = new Size(72, 42);
-            button1.TabIndex = 0;
-            button1.Text = "刷资源";
-            button1.UseVisualStyleBackColor = true;
-            button1.Click += button1_Click;
             // 
             // numLevel
             // 
@@ -109,7 +99,7 @@
             // 
             // button3
             // 
-            button3.Location = new Point(58, 95);
+            button3.Location = new Point(58, 45);
             button3.Name = "button3";
             button3.Size = new Size(72, 42);
             button3.TabIndex = 9;
@@ -119,7 +109,7 @@
             // 
             // button4
             // 
-            button4.Location = new Point(150, 142);
+            button4.Location = new Point(150, 153);
             button4.Name = "button4";
             button4.Size = new Size(72, 42);
             button4.TabIndex = 10;
@@ -127,12 +117,22 @@
             button4.UseVisualStyleBackColor = true;
             button4.Click += button4_Click;
             // 
+            // button5
+            // 
+            button5.Location = new Point(150, 95);
+            button5.Name = "button5";
+            button5.Size = new Size(72, 42);
+            button5.TabIndex = 21;
+            button5.Text = "调试截图";
+            button5.UseVisualStyleBackColor = true;
+            button5.Click += button5_Click;
+            // 
             // checkBox1
             // 
             checkBox1.AutoSize = true;
             checkBox1.Checked = true;
             checkBox1.CheckState = CheckState.Checked;
-            checkBox1.Location = new Point(240, 53);
+            checkBox1.Location = new Point(240, 45);
             checkBox1.Name = "checkBox1";
             checkBox1.Size = new Size(58, 21);
             checkBox1.TabIndex = 11;
@@ -144,7 +144,7 @@
             checkBox2.AutoSize = true;
             checkBox2.Checked = true;
             checkBox2.CheckState = CheckState.Checked;
-            checkBox2.Location = new Point(240, 80);
+            checkBox2.Location = new Point(240, 72);
             checkBox2.Name = "checkBox2";
             checkBox2.Size = new Size(58, 21);
             checkBox2.TabIndex = 12;
@@ -156,7 +156,7 @@
             checkBox3.AutoSize = true;
             checkBox3.Checked = true;
             checkBox3.CheckState = CheckState.Checked;
-            checkBox3.Location = new Point(240, 107);
+            checkBox3.Location = new Point(240, 99);
             checkBox3.Name = "checkBox3";
             checkBox3.Size = new Size(58, 21);
             checkBox3.TabIndex = 13;
@@ -168,7 +168,7 @@
             checkBox4.AutoSize = true;
             checkBox4.Checked = true;
             checkBox4.CheckState = CheckState.Checked;
-            checkBox4.Location = new Point(240, 134);
+            checkBox4.Location = new Point(240, 126);
             checkBox4.Name = "checkBox4";
             checkBox4.Size = new Size(58, 21);
             checkBox4.TabIndex = 14;
@@ -180,7 +180,7 @@
             checkBox5.AutoSize = true;
             checkBox5.Checked = true;
             checkBox5.CheckState = CheckState.Checked;
-            checkBox5.Location = new Point(240, 161);
+            checkBox5.Location = new Point(240, 153);
             checkBox5.Name = "checkBox5";
             checkBox5.Size = new Size(58, 21);
             checkBox5.TabIndex = 15;
@@ -189,55 +189,55 @@
             // 
             // button2
             // 
-            button2.Location = new Point(57, 144);
+            button2.Location = new Point(58, 103);
             button2.Name = "button2";
-            button2.Size = new Size(63, 46);
+            button2.Size = new Size(72, 42);
             button2.TabIndex = 16;
             button2.Text = "打人机资源";
             button2.UseVisualStyleBackColor = true;
             button2.Click += button2_Click;
-            //
+            // 
             // numResMin
-            //
-            numResMin.Location = new Point(84, 195);
+            // 
+            numResMin.Location = new Point(84, 205);
             numResMin.Maximum = new decimal(new int[] { 2000, 0, 0, 0 });
             numResMin.Name = "numResMin";
             numResMin.Size = new Size(64, 23);
             numResMin.TabIndex = 17;
             numResMin.Value = new decimal(new int[] { 380, 0, 0, 0 });
-            //
+            // 
             // numResMax
-            //
-            numResMax.Location = new Point(214, 195);
+            // 
+            numResMax.Location = new Point(214, 205);
             numResMax.Maximum = new decimal(new int[] { 2000, 0, 0, 0 });
             numResMax.Name = "numResMax";
             numResMax.Size = new Size(64, 23);
             numResMax.TabIndex = 18;
             numResMax.Value = new decimal(new int[] { 600, 0, 0, 0 });
-            //
+            // 
             // label2
-            //
+            // 
             label2.AutoSize = true;
-            label2.Location = new Point(16, 197);
+            label2.Location = new Point(16, 207);
             label2.Name = "label2";
             label2.Size = new Size(68, 17);
             label2.TabIndex = 19;
             label2.Text = "资源下限：";
-            //
+            // 
             // label3
-            //
+            // 
             label3.AutoSize = true;
-            label3.Location = new Point(152, 197);
+            label3.Location = new Point(152, 207);
             label3.Name = "label3";
             label3.Size = new Size(68, 17);
             label3.TabIndex = 20;
             label3.Text = "资源上限：";
-            //
+            // 
             // Form1
-            //
+            // 
             AutoScaleDimensions = new SizeF(7F, 17F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(313, 235);
+            ClientSize = new Size(313, 245);
             Controls.Add(numResMax);
             Controls.Add(numResMin);
             Controls.Add(label2);
@@ -249,13 +249,13 @@
             Controls.Add(checkBox2);
             Controls.Add(checkBox1);
             Controls.Add(button4);
+            Controls.Add(button5);
             Controls.Add(button3);
             Controls.Add(numRun);
             Controls.Add(label4);
             Controls.Add(btnStop);
             Controls.Add(label1);
             Controls.Add(numLevel);
-            Controls.Add(button1);
             Name = "Form1";
             Text = "Form1";
             ((System.ComponentModel.ISupportInitialize)numLevel).EndInit();
@@ -267,8 +267,6 @@
         }
 
         #endregion
-
-        private Button button1;
         private NumericUpDown numLevel;
         private Label label1;
         private Button btnStop;
@@ -276,6 +274,7 @@
         private NumericUpDown numRun;
         private Button button3;
         private Button button4;
+        private Button button5;
         private CheckBox checkBox1;
         private CheckBox checkBox2;
         private CheckBox checkBox3;

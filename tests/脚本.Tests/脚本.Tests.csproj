@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
+    <PackageReference Include="xunit" Version="2.6.6" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.5.6" />
+    <PackageReference Include="OpenCvSharp4" Version="4.11.0.20250507" />
+    <PackageReference Include="OpenCvSharp4.Extensions" Version="4.11.0.20250507" />
+    <PackageReference Include="OpenCvSharp4.runtime.win" Version="4.11.0.20250507" />
+    <PackageReference Include="Tesseract" Version="5.2.0" />
+    <PackageReference Include="Tesseract.Drawing" Version="5.2.0" />
+  </ItemGroup>
+
+  <!-- 源码链接：直接编译主项目的核心类（同一份源码，测的就是产品代码） -->
+  <ItemGroup>
+    <Compile Include="..\..\GameLevelRecognizer.cs" Link="Src\GameLevelRecognizer.cs" />
+    <Compile Include="..\..\ScreenCapturer.cs" Link="Src\ScreenCapturer.cs" />
+    <Compile Include="..\..\TemplateMatcher.cs" Link="Src\TemplateMatcher.cs" />
+    <Compile Include="..\..\Locationinformation.cs" Link="Src\Locationinformation.cs" />
+    <Compile Include="..\..\TextParsing.cs" Link="Src\TextParsing.cs" />
+    <Compile Include="..\..\ImageProcessing.cs" Link="Src\ImageProcessing.cs" />
+  </ItemGroup>
+
+  <!-- 复制 tessdata 到测试输出目录（GetNumberRecognizer 从 BaseDirectory\tessdata 加载） -->
+  <ItemGroup>
+    <None Include="..\..\bin\Debug\net8.0-windows\tessdata\**\*">
+      <Link>tessdata\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>
