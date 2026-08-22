@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -227,13 +228,21 @@ namespace 脚本
         }
 
         /// <summary>
+        /// 截图模式开关：true = RAW 裸数据（省模拟器内 PNG 编码，传输量增大）；false = PNG（-p）。
+        /// 实测对比后保留较快模式。
+        /// </summary>
+        private static readonly bool UseRawScreencap = true;
+
+        /// <summary>
         /// 直接获取屏幕Bitmap（最推荐，效率最高）
         /// </summary>
         public Bitmap CaptureToBitmap()
         {
             try
             {
-                string command = BuildCommand("exec-out screencap -p");
+                string command = UseRawScreencap
+                    ? BuildCommand("exec-out screencap")
+                    : BuildCommand("exec-out screencap -p");
 
                 var processInfo = new ProcessStartInfo
                 {
@@ -269,6 +278,8 @@ namespace 脚本
                             throw new Exception($"截图失败: {stderrTask.GetAwaiter().GetResult()}");
 
                         memoryStream.Position = 0;
+                        if (UseRawScreencap)
+                            return DecodeRawScreencap(memoryStream);
                         return new Bitmap(memoryStream);
                     }
                 }
@@ -277,6 +288,48 @@ namespace 脚本
             {
                 throw new Exception("截图失败", ex);
             }
+        }
+
+        /// <summary>
+        /// 解码裸 RGBA screencap 输出（Android RGBA 字节序 → GDI+ BGRA）
+        /// 注意：screencap 裸输出带 16 字节头部（w,h,format,0），需跳过。
+        /// </summary>
+        private static Bitmap DecodeRawScreencap(Stream stream)
+        {
+            const int width = 1920, height = 1080;
+            const int headerSize = 16;   // screencap 裸输出头部（w,h,format,0）
+            int pixelCount = width * height;
+            byte[] raw = new byte[headerSize + pixelCount * 4];
+            int offset = 0;
+            while (offset < raw.Length)
+            {
+                int read = stream.Read(raw, offset, raw.Length - offset);
+                if (read <= 0) throw new Exception($"screencap 数据不完整: {offset}/{raw.Length}");
+                offset += read;
+            }
+
+            var bmp = new Bitmap(width, height, PixelFormat.Format32bppArgb);
+            var data = bmp.LockBits(new Rectangle(0, 0, width, height), ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
+            try
+            {
+                int stride = data.Stride;
+                byte[] row = new byte[width * 4];
+                for (int y = 0; y < height; y++)
+                {
+                    int rowOffset = headerSize + y * width * 4;
+                    for (int x = 0; x < width; x++)
+                    {
+                        int i = rowOffset + x * 4;
+                        row[x * 4] = raw[i + 2];       // B ← R
+                        row[x * 4 + 1] = raw[i + 1];   // G
+                        row[x * 4 + 2] = raw[i];       // R ← B
+                        row[x * 4 + 3] = raw[i + 3];   // A
+                    }
+                    Marshal.Copy(row, 0, data.Scan0 + y * stride, row.Length);
+                }
+            }
+            finally { bmp.UnlockBits(data); }
+            return bmp;
         }
 
         public void Tap(int x, int y)

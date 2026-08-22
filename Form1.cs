@@ -26,6 +26,10 @@ namespace 脚本
             _recognizer = new GetNumberRecognizer(_capturer);
             _satelliteMatcher = new TemplateMatcher(
                 Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Templates", "satellite_base.png"));
+            // 命中尺度稳定在 1.10（多轮日志验证），收窄全图扫描范围提速（29尺度→9尺度）
+            _satelliteMatcher.MinScale = 0.9;
+            _satelliteMatcher.MaxScale = 1.3;
+            _satelliteMatcher.ScaleStep = 0.05;
             _gunMatcher = new TemplateMatcher(
                 Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Templates", "gun.png"));
             // 资源面板标题模板：用于定位"可掠夺资源"面板（位置无关，容忍移动基地/视角漂移）
