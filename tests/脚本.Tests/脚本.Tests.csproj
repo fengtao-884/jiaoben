@@ -27,6 +27,10 @@
     <Compile Include="..\..\Locationinformation.cs" Link="Src\Locationinformation.cs" />
     <Compile Include="..\..\TextParsing.cs" Link="Src\TextParsing.cs" />
     <Compile Include="..\..\ImageProcessing.cs" Link="Src\ImageProcessing.cs" />
+    <Compile Include="..\..\GameFlow.cs" Link="Src\GameFlow.cs" />
+    <Compile Include="..\..\Flows\CommonSteps.cs" Link="Src\Flows\CommonSteps.cs" />
+    <Compile Include="..\..\Flows\BattleFlow.cs" Link="Src\Flows\BattleFlow.cs" />
+    <Compile Include="..\..\Flows\FarmFlows.cs" Link="Src\Flows\FarmFlows.cs" />
   </ItemGroup>
 
   <!-- 复制 tessdata 到测试输出目录（GetNumberRecognizer 从 BaseDirectory\tessdata 加载） -->

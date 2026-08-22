@@ -115,7 +115,21 @@ internal static class ImageProcessing
     public static int CountDigitLikeComponents(Bitmap source, Rectangle region, int minHeight = 15)
         => CountComponentsCore(source, region).Count(c => c.height >= minHeight);
 
-    private sealed record ComponentInfo(int width, int height, int area);
+    private sealed record ComponentInfo(int width, int height, int area, int centerX, int centerY);
+
+    /// <summary>
+    /// 抗场景干扰版资源归零判据：在大区域内统计连通域，只计"数字字符块"——
+    /// 需同时满足：①块中心落在任一数字窄带内（bandCentersY 为相对 region 的 y 中心，±bandHalfHeight）
+    /// ②宽高符合数字字符尺寸窗口（实测数字 16x26）。
+    /// 实测（8 张运行取证图）：场景干扰块（建筑 42x39/70x104、特效横条等）被双重排除，
+    /// 归零帧 2 个、有值/移动后帧 14 个，阈值 ≤3 判归零全部正确。
+    /// </summary>
+    public static int CountDigitCharsInBands(Bitmap source, Rectangle region, int[] bandCentersY,
+        int bandHalfHeight = 13, int minWidth = 6, int maxWidth = 24, int minHeight = 20, int maxHeight = 32)
+        => CountComponentsCore(source, region).Count(c =>
+            c.height >= minHeight && c.height <= maxHeight &&
+            c.width >= minWidth && c.width <= maxWidth &&
+            bandCentersY.Any(bc => Math.Abs(c.centerY - bc) <= bandHalfHeight));
 
     private static List<ComponentInfo> CountComponentsCore(Bitmap source, Rectangle region)
     {
@@ -168,7 +182,7 @@ internal static class ImageProcessing
                 if (y > 0 && set.Contains(p - w) && !visited.Contains(p - w)) { visited.Add(p - w); stack.Push(p - w); }
                 if (y < h - 1 && set.Contains(p + w) && !visited.Contains(p + w)) { visited.Add(p + w); stack.Push(p + w); }
             }
-            result.Add(new ComponentInfo(maxX - minX + 1, maxY - minY + 1, area));
+            result.Add(new ComponentInfo(maxX - minX + 1, maxY - minY + 1, area, (minX + maxX) / 2, (minY + maxY) / 2));
         }
         return result;
     }

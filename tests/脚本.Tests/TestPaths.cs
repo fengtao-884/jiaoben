@@ -16,4 +16,7 @@ public static class TestPaths
     public static readonly string Scene11 = @"C:\Users\ft\AppData\Local\Temp\opencode\matchtest\scene11.png"; // 战斗归零帧（1920x1080）
     public static readonly string Scene12 = @"C:\Users\ft\AppData\Local\Temp\opencode\matchtest\scene12.png"; // 战斗有值帧（1920x1080）
     public static readonly string Scene13 = @"C:\Users\ft\AppData\Local\Temp\opencode\matchtest\scene13.png"; // 运行时取证（油料0、金币7位）
+
+    // 运行取证图目录（debug_*.png 为用户手动"调试截图"收集的战斗画面样本）
+    public static readonly string DebugShots = Path.Combine(Root, "bin", "Debug", "net8.0-windows", "Screenshots");
 }
